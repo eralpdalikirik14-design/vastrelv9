@@ -27,10 +27,9 @@ Bu araç **sadece eğitim amaçlı**, etik hacking, siber güvenlik öğrenimi v
 pkg update && pkg upgrade -y
 pkg install python git -y
 
-1 sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' Vastrel.py
-
-2 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
+1 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
 cd vastrelv9
+sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' Vastrel.py
 pip install -r requirements.txt
 python vastrel.py
 
@@ -41,10 +40,9 @@ python vastrel.py
 sudo apt update && sudo apt upgrade -y
 sudo apt install python3 git -y
 
-1 sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' Vastrel.py
-
 2 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
 cd vastrelv9
 pip3 install -r requirements.txt
+sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' am.txt
 python3 vastrel.py
 
