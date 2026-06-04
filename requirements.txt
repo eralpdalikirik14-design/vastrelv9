@@ -1,0 +1,5 @@
+colorama
+requests
+fake-useragent
+pyperclip
+
