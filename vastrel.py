@@ -8,7 +8,7 @@ import subprocess
 import random
 import sys
 import threading
-import quote
+from urllib.parse import quote
 from fake_useragent import UserAgent
 import random
 import pyperclip
