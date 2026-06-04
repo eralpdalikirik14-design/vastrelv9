@@ -37,7 +37,9 @@ Kali linux için:
 sudo apt update && sudo apt upgrade -y
 sudo apt install python3 git -y
 
-git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
+1 sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' Vastrel.py
+
+2 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
 cd vastrelv9
 pip3 install -r requirements.txt
 <<<<<<< HEAD
