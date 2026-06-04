@@ -40,4 +40,8 @@ sudo apt install python3 git -y
 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
 cd vastrelv9
 pip3 install -r requirements.txt
+<<<<<<< HEAD
 python3 vastrel.py
+=======
+python3 vastrel.py
+>>>>>>> 1b1ed30d1a45e536648525c858f9b2d615a64ec8
