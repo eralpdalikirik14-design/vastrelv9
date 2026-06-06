@@ -28,10 +28,10 @@ pkg update && pkg upgrade -y
 pkg install python git -y
 
 1 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
-cd vastrelv9
-sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' Vastrel.py
-pip install -r requirements.txt
-python vastrel.py
+2cd vastrelv9
+3sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' vastrel.py
+4pip install -r requirements.txt
+5python vastrel.py
 
 ## Kurulum
 
@@ -41,8 +41,8 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install python3 git -y
 
 2 git clone https://github.com/eralpdalikirik14-design/vastrelv9.git
-cd vastrelv9
-pip3 install -r requirements.txt
-sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' am.txt
-python3 vastrel.py
+2cd vastrelv9
+3pip3 install -r requirements.txt
+4sed -i 's/Style\.LIGHTCYAN_EX/Fore.CYAN/g' 5vastrel.py
+6python3 vastrel.py
 
