@@ -675,7 +675,7 @@ class VASTREL:
         input(Fore.YELLOW + "\nEnter ile menüye dön...")
 
     def tv_hack(self):
-    import socket
+import socket
 import time
 import subprocess
 import os
