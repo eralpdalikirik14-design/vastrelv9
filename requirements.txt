@@ -2,4 +2,7 @@ colorama
 requests
 fake-useragent
 pyperclip
-
+wakeonlan
+samsungtvws
+netifaces
+break-system-packages
