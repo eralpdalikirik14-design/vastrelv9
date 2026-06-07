@@ -5,4 +5,4 @@ pyperclip
 wakeonlan
 samsungtvws
 netifaces
-break-system-packages
+
