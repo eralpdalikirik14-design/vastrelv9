@@ -674,7 +674,7 @@ class VASTREL:
 
         input(Fore.YELLOW + "\nEnter ile menüye dön...")
 
-def tv_hack(self):
+    def tv_hack(self):
     import socket
 import time
 import subprocess
@@ -1205,7 +1205,7 @@ if __name__ == "__main__":
             print(Fore.CYAN + "5. password generator")
             print(Fore.CYAN + "6. ip info ")
             print(Fore.CYAN + "7. ddos attack")
-            print(Fore.CYAN + "8. tv hack(control)
+            print(Fore.CYAN + "8. tv hack ")
             print(Fore.CYAN + "9. show history/log geçmişi")
             print(Fore.CYAN + "10. exit/çıkış")
 
