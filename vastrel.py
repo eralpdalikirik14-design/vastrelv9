@@ -1227,8 +1227,8 @@ class VASTREL:
             elif secim == "9":
                  self.show_history()
             elif secim == "10":
-              print(Fore.RED + "\nGörüşürüz Ghost...")
-                sys.exit(0)
+              print(Fore.RED + "\nGörüşürüz...")
+              sys.exit(0)
             else:
                 print(Fore.RED + "Geçersiz seçim.")
 
@@ -1240,6 +1240,6 @@ if __name__ == "__main__":
     try:
         VASTREL()
     except KeyboardInterrupt:
-        print(Fore.RED + "\nGörüşürüz piç..." + Style.RESET_ALL)
+        print(Fore.RED + "\nGörüşürüz..." + Style.RESET_ALL)
     except Exception as e:
         print(Fore.RED + f"Hata: {e}")
